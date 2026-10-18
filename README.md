@@ -122,10 +122,12 @@ Hasil: `eth1`–`eth4` pada jichi ber-IP `10.84.1.1`–`10.84.4.1` (/24), forwar
 
 - **jichi**
 <img width="1920" height="1080" alt="Soal1_jichi" src="https://github.com/user-attachments/assets/19a8cd80-bc56-4ef8-8667-10f5a309f62b" />
-`ip -br a`, `ip r`, `ip_forward`, rule MASQUERADE, dan ping ke `192.168.122.1`, `8.8.8.8`, `google.com` dari jichi.
+
+Menjalankan `ip -br a`, `ip r`, `ip_forward`, rule `MASQUERADE`, dan ping ke `192.168.122.1`, `8.8.8.8`, `google.com` dari jichi.
 
 - **utahime** (Network 1, termasuk akses eksternal)
 <img width="1920" height="1080" alt="Soal1_utahime" src="https://github.com/user-attachments/assets/0211bcaa-2fcb-48d1-a7a2-290e3f1c3cc2" />
+
 Hostname, IP `10.84.1.2`, route, ping ke gateway `10.84.1.1`, serta ping ke `8.8.8.8` dan `google.com`.
 
 - **Host Network 1 (shoko, gojo)**
@@ -211,6 +213,7 @@ ss -ulnp | grep :67
 Hasil: konfigurasi valid (`[tengen] Konfigurasi valid.`), `dhcpd is running`, proses `dhcpd -4 ... eth0` berjalan, dan `dhcpd` mendengarkan pada UDP `0.0.0.0:67`, tanpa error "No subnet declaration".
 
 <img width="1920" height="1080" alt="Soal2" src="https://github.com/user-attachments/assets/f4c1468c-b608-438a-b0d9-dcfe864aa06f" />
+
 Output script (konfigurasi valid), isi `isc-dhcp-server` dan `dhcpd.conf`, status service, proses `dhcpd`, dan port 67.
 
 ## Soal 3
@@ -275,15 +278,19 @@ tail -30 /var/lib/dhcp/dhcpd.leases
 Hasil: proses `dhcrelay -q -i eth2 -i eth3 -i eth4 10.84.4.10` berjalan. itadori memperoleh `10.84.2.10` (gateway `10.84.2.1`) dan ino memperoleh `10.84.3.10` (gateway `10.84.3.1`), keduanya dari server `10.84.4.10`, dan lease tercatat pada `dhcpd.leases` di tengen.
 
 <img width="1920" height="1080" alt="Soal3_1_relay" src="https://github.com/user-attachments/assets/1c88ff61-3eef-4b0a-84d8-1191796a1bb2" />
+
 Hasil `tcpdump` yang menunjukkan balasan server tidak diteruskan ke `eth2`, perbaikan `INTERFACES="eth2 eth3 eth4"`, isi konfigurasi relay, dan proses `dhcrelay`.
 
 <img width="1920" height="1080" alt="Soal3_2_itadori" src="https://github.com/user-attachments/assets/e97ba730-3686-4e7a-b785-4eac360d4d5f" />
+
 itadori (Network 2) memperoleh lease `10.84.2.10` dari `10.84.4.10`, dengan `default via 10.84.2.1`. 
 
 <img width="1920" height="1080" alt="Soal3_3_ino" src="https://github.com/user-attachments/assets/ed5d6c83-9502-4b58-85a4-bf72a2df729a" />
+
 ino (Network 3) memperoleh lease `10.84.3.10` dari `10.84.4.10`, dengan `default via 10.84.3.1`.
 
 <img width="1920" height="1080" alt="Soal3_4_tengen" src="https://github.com/user-attachments/assets/0384f6a9-d1dc-4e7e-912a-ddd9391d30af" />
+
 Status `dhcpd` dan isi `dhcpd.leases` pada tengen: lease `10.84.2.10` dan `10.84.3.10` tercatat bersama MAC client.
 
 ## Soal 4
@@ -359,15 +366,18 @@ Hasil:
 Tidak ada client yang memperoleh alamat pada `10.84.2.36`–`10.84.2.69`.
 
 <img width="3840" height="2160" alt="combined-image" src="https://github.com/user-attachments/assets/a5cd56c1-20cf-4039-b89b-49cf8d829a4f" />
+
 itadori: MAC `02:42:ca:0c:2a:00`, memperoleh `10.84.2.10` (Pool 1).
 fushiguro: MAC `02:42:2c:10:8f:00`, memperoleh `10.84.2.11` (Pool 1).
 zenin: MAC `02:42:4a:14:24:00`, memperoleh `10.84.2.70` (Pool 2).
 okkotsu: MAC `02:42:bc:7b:16:00`, memperoleh `10.84.2.71` (Pool 2).
 
 <img width="1920" height="1080" alt="Soal4_tengen_conf" src="https://github.com/user-attachments/assets/9be3c882-b434-494e-9923-2617314d4ffe" />
+
 `dhcpd.conf` pada tengen: class `pool1` dan `pool2`, serta dua blok `pool` pada Network 2.
 
 <img width="1920" height="1080" alt="Soal4_tengen_leases" src="https://github.com/user-attachments/assets/77d93a26-8f36-4d25-a0f6-3e6744959f6f" />
+
 `dhcpd.leases` pada tengen: lease keempat client beserta MAC masing-masing.
 
 ## Soal 5
@@ -465,21 +475,27 @@ Catatan: angka lease time di client dapat lebih kecil dari nilai penuh (misalnya
 
 <img width="1920" height="1080" alt="Soal5_tengen_conf1" src="https://github.com/user-attachments/assets/fede6a97-5d96-42d2-9254-5a724a4ece46" />
 <img width="1920" height="1080" alt="Soal5_tengen_conf2" src="https://github.com/user-attachments/assets/646947f2-9c7f-4ad7-9ab2-7e9176cb3528" />
+
 `dhcpd.conf` option DNS dan domain-search, class Network 2, class `short` dan `long`, lease time-nya, pool Network 2 dan Network 3, serta hasil `dhcpd -t`.
 
 <img width="1920" height="1080" alt="Soal5_kusakabe" src="https://github.com/user-attachments/assets/973c25f9-fde2-441d-91e0-e8a4269df2c5" />
+
 kusakabe (short): MAC `02:42:65:95:ef:00`, lease `10.84.3.11` selama 1800 detik, dan `resolv.conf` berisi kedua nameserver.
 
 <img width="1920" height="1080" alt="Soal5_ino" src="https://github.com/user-attachments/assets/7e6634de-771b-487d-aff6-a275faedc4ba" />
+
 ino (short): lease `10.84.3.10` dan `resolv.conf` berisi kedua nameserver.
 
 <img width="1920" height="1080" alt="Soal5_miwa" src="https://github.com/user-attachments/assets/5b473db3-3045-4d9a-8638-58b5fbedd988" />
+
 miwa (long): MAC `02:42:90:34:fc:00`, lease `10.84.3.100` selama 43200 detik, dan `resolv.conf` berisi kedua nameserver.
 
 <img width="1920" height="1080" alt="Soal5_tengen_leases" src="https://github.com/user-attachments/assets/300f1222-6e0a-43ea-a62d-58ea66a60b89" />
+
 `dhcpd.leases` pada tengen: lease `10.84.3.11` (30 menit) dan `10.84.3.100` (12 jam).
 
 <img width="1920" height="1080" alt="Soal5_domain-search" src="https://github.com/user-attachments/assets/cde10352-2c0c-4233-b4c7-90dd70ce56d5" />
+
 Dari kusakabe: tanpa option 119 tidak ada `search`, sedangkan dengan `-O 119` muncul `search=K41.com` bersama `router`, `dns`, `subnet`, dan `broadcast`.
 
 ## Soal 6
@@ -575,18 +591,23 @@ tcpdump -ni eth0 -vvv port 67 or port 68
 Hasil: konfigurasi valid dan service berjalan. kugisaki memperoleh `10.84.3.99/24` dengan `default via 10.84.3.1`. Pada tangkapan paket, Offer dan ACK berisi `Your-IP 10.84.3.99` dan `Client-Ethernet-Address 02:42:89:a8:74:00`, dengan `Gateway-IP 10.84.3.1`.
 
 <img width="1920" height="1080" alt="Soal6_tengen_host" src="https://github.com/user-attachments/assets/7bd64acc-483f-4bd6-80aa-edb38717a8ad" />
+
 Script `06_tengen_fixed.sh` dijalankan: konfigurasi valid (dengan warning `Host declarations are global`), service di-restart, dan `grep -A4 "host kugisaki"`.
 
 <img width="1920" height="1080" alt="Soal6_kugisaki" src="https://github.com/user-attachments/assets/592fb245-863e-43e0-a79f-5c905e2d113a" />
+
 kugisaki memperoleh lease `10.84.3.99` dari `10.84.4.10`.
 
 <img width="1920" height="1080" alt="Soal6_tengen_status" src="https://github.com/user-attachments/assets/37bb4840-2fdf-4fc7-8306-4178f31ceec2" />
+
 Status `dhcpd` pada tengen dan isi `dhcpd.leases`.
 
 <img width="1920" height="1080" alt="Soal6_kugisaki_renew" src="https://github.com/user-attachments/assets/efb2a255-6278-4ace-b6e7-a0f209ffa3ff" />
+
 Renew lease pada kugisaki: `udhcpc -i eth0` memperoleh `10.84.3.99`, `ip -br a`, dan `ip r`
 
 <img width="1920" height="1080" alt="Soal6_tengen_tcpdump" src="https://github.com/user-attachments/assets/c493bbf0-3a1b-43ba-8fcc-90bbffa32fa9" />
+
 Tangkapan paket di tengen: Offer dan ACK dengan `Your-IP 10.84.3.99` untuk MAC `02:42:89:a8:74:00`.
 
 ## Soal 7
@@ -702,15 +723,19 @@ Hasil:
 `giaddr` sama dengan IP `eth2` jichi (`10.84.2.1`), yaitu interface yang menerima request dari Network 2. Pada capture, paket dari relay bersumber `10.84.4.1` ke `10.84.4.10`, dan balasan server dikirim ke `10.84.2.1` (alamat giaddr).
 
 <img width="1920" height="1080" alt="Soal8_jichi" src="https://github.com/user-attachments/assets/8ada089a-8bf5-4842-b503-fa652bc0ec0a" />
+
 relay `dhcrelay` berjalan dan `ip -br a` menunjukkan `eth2` = `10.84.2.1`, `eth3` = `10.84.3.1`, `eth4` = `10.84.4.1`.
 
 <img width="1920" height="1080" alt="Soal8_tengen_capture1" src="https://github.com/user-attachments/assets/6bffe7aa-4022-45c2-903e-14ab6d7b2b30" />
+
 **DHCPDISCOVER** dari relay (`Gateway-IP 10.84.2.1`), **DHCPOFFER** dari server (`Your-IP 10.84.2.10`, `Server-ID 10.84.4.10`, `Lease-Time 600`), dan awal **DHCPREQUEST**.
 
 <img width="1920" height="1080" alt="Soal8_tengen_capture2" src="https://github.com/user-attachments/assets/55d5aae6-7e2c-48d6-ae8d-d55b273c55f7" />
+
 **DHCPREQUEST** dan **DHCPACK**, lalu ringkasan: server `10.84.4.10`, alamat diberikan `10.84.2.10`, lease time 600, dan giaddr `10.84.2.1`.
 
 <img width="1920" height="1080" alt="Soal8_itadori" src="https://github.com/user-attachments/assets/a3478f7a-b18f-42ca-9463-b112c8890b99" />
+
 melepas lease lama lalu meminta lease baru, memperoleh `10.84.2.10` dengan lease time 600 dan `default via 10.84.2.1`.
 
 ## Soal 9
@@ -803,18 +828,23 @@ Gejala saat relay mati:
 Setelah relay dipulihkan: ino memperoleh `10.84.3.10/24` (pool short `10.84.3.10`–`.89`), lease 1800, `default via 10.84.3.1` (gateway semula), dan ping ke gateway berhasil.
 
 <img width="1920" height="1080" alt="Soal9_1_relay-mati" src="https://github.com/user-attachments/assets/70f6671e-f68d-4116-af53-f758225506da" />
+
 `09_jichi_gangguan.sh stop`, pesan `relay MATI`, dan `ps aux | grep [d]hcrelay` kosong.
 
 <img width="1920" height="1080" alt="Soal9_2_ino-gagal" src="https://github.com/user-attachments/assets/4183f163-e618-41b0-811b-c616bfbc2281" />
+
 ino saat relay mati: `no lease, failing`, tidak ada IPv4 pada `eth0`, dan ping ke gateway `Network unreachable`.
 
 <img width="1920" height="1080" alt="Soal9_3_tcpdump" src="https://github.com/user-attachments/assets/540146c8-bec8-4225-8482-cbcfb39dffa0" />
+
 tcpdump menangkap DISCOVER ino di `eth3` tanpa paket yang diteruskan ke tengen lewat `eth4`.
 
 <img width="1920" height="1080" alt="Soal9_4_relay-pulih" src="https://github.com/user-attachments/assets/cd058fa2-4304-4ff6-9498-9940b5556fda" />
+
 `09_jichi_gangguan.sh start`, dan proses `dhcrelay -q -i eth2 -i eth3 -i eth4 10.84.4.10` berjalan kembali.
 
 <img width="1920" height="1080" alt="Soal9_5_ino-pulih" src="https://github.com/user-attachments/assets/015c614e-1ab3-4ca4-91b6-7af90e3e7673" />
+
 percobaan gagal saat relay mati, lalu setelah relay pulih memperoleh `10.84.3.10` (lease 1800), `default via 10.84.3.1`, dan ping gateway berhasil.
  
 ## Soal 10
@@ -939,42 +969,54 @@ Hasil setelah restart:
 
 - **Sebelum restart**
 <img width="1920" height="1080" alt="Soal10_01_jichi-boot-script" src="https://github.com/user-attachments/assets/d96d7696-f2be-49b4-9c04-7003237ae916" />
+
  isi `boot_jichi.sh` dan baris pemicu pada `/root/.bashrc`.
 
 <img width="1920" height="1080" alt="Soal10_02_tengen-boot-script" src="https://github.com/user-attachments/assets/43af9f28-5810-4c33-b79a-6ca0a2e09e48" />
+
 isi `boot_tengen.sh` dan baris pemicu pada `/root/.bashrc`.
 
 <img width="1920" height="1080" alt="Soal10_03_jichi-pid-sebelum" src="https://github.com/user-attachments/assets/fbb385c7-eaf1-4d8e-ab33-a82a0f8b7c3a" />
+
 PID `dhcrelay` sebelum restart.
 
 <img width="1920" height="1080" alt="Soal10_04_tengen-pid-sebelum" src="https://github.com/user-attachments/assets/9f234264-aaed-45cc-a40b-2a769dc8cd83" />
+
 PID `dhcpd` sebelum restart.
 
 - **Setelah restart: jichi**
 <img width="1920" height="1080" alt="Soal10_06_jichi-setelah-restart" src="https://github.com/user-attachments/assets/30e8c18e-c169-4e87-a3d4-ecce04c2853f" />
+
 `dhcrelay` berjalan dengan PID baru, isi `/etc/default/isc-dhcp-relay`, `ip -br a`, `ip r`, dan ping `8.8.8.8`.
 
 - **Setelah restart: tengen**
 <img width="1920" height="1080" alt="Soal10_08_tengen-setelah-restart" src="https://github.com/user-attachments/assets/a93f1998-9d11-493a-b824-fe35e411dece" />
+
 `dhcpd` berjalan dengan PID baru, status service, IP dan route, serta konfigurasi pool dan fixed address.
 
 <img width="1920" height="1080" alt="Soal10_10_tengen-config-lease" src="https://github.com/user-attachments/assets/fd4a1908-0228-4a2a-b612-156afbeb090f" />
+
 seluruh `range`, lease time, dan `fixed-address`, daftar IP–MAC dari `dhcpd.leases`, serta durasi lease ino (30 menit) dan miwa (12 jam).
 
 - **Setelah restart: client Network 2 dan 3**
 <img width="1920" height="1080" alt="Soal10_11_itadori" src="https://github.com/user-attachments/assets/8000905a-1915-4d35-806d-a8abf6cae9ee" />
+
 itadori (Pool 1): `10.84.2.10`, lease 600, ping gateway `10.84.2.1` dan tengen berhasil.
 
 <img width="1920" height="1080" alt="Soal10_12_zenin" src="https://github.com/user-attachments/assets/ced0ac66-af3d-4ba0-90fb-f7d26993abd2" />
+
 zenin (Pool 2): `10.84.2.70`, lease 600, ping gateway `10.84.2.1` dan tengen berhasil.
 
 <img width="1920" height="1080" alt="Soal10_13_ino" src="https://github.com/user-attachments/assets/a30d56db-fbf1-481e-bb93-8de650ac0a07" />
+
 ino (short lease): `10.84.3.10`, ping gateway `10.84.3.1` dan tengen berhasil.
 
 <img width="1920" height="1080" alt="Soal10_14_miwa" src="https://github.com/user-attachments/assets/ffaad689-db86-46f6-a594-0b419749f1bb" />
+
 miwa (long lease): `10.84.3.100`, lease 43200, ping gateway `10.84.3.1` dan tengen berhasil.
 
 <img width="1920" height="1080" alt="Soal10_15_kugisaki" src="https://github.com/user-attachments/assets/f78eb283-a995-41fc-a622-3a0affedf4a4" />
+
 kugisaki (fixed address): `10.84.3.99`, ping gateway `10.84.3.1` dan tengen berhasil.
 
 ## Soal 11
