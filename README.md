@@ -119,6 +119,7 @@ ping -c 3 google.com
 ```
  
 Hasil: `eth1`–`eth4` pada jichi ber-IP `10.84.1.1`–`10.84.4.1` (/24), forwarding bernilai `1`, rule `MASQUERADE` aktif pada `eth0`, dan ping ke gateway NAT, `8.8.8.8`, serta `google.com` berhasil. Seluruh 12 host infrastruktur berhasil ping ke gateway masing-masing, dan utahime berhasil mengakses internet melalui NAT jichi.
+
  
 ## Soal 2
 Tengen, penjaga pusat distribusi di Data Center, harus mengambil alih pengalokasian alamat bagi wilayah yang membutuhkan konfigurasi dinamis. Konfigurasikan isc-dhcp-server pada [PREFIX IP].4.10. Deklarasikan Network 4 ([PREFIX IP].4.0/24) sebagai subnet lokal tanpa pool dinamis, lalu siapkan scope DHCP untuk Network 2 ([PREFIX IP].2.0/24) dan Network 3 ([PREFIX IP].3.0/24). Validasi konfigurasi dan pastikan service aktif tanpa error “No subnet declaration”.
@@ -269,7 +270,7 @@ Agar tim Dev dan Support di Divisi A menerima jatah alamat yang berbeda, atur du
 5. Meminta lease dari keempat client dan memeriksa IP yang diperoleh.
 
 ### Command
-**tengen** — `/root/04_tengen_pool.sh` (bagian konfigurasi Network 2)
+**tengen** — `/root/04_tengen_pool.sh` 
  
 ```
 class "pool1" {
@@ -342,7 +343,7 @@ Setiap tim lapangan memiliki durasi operasi yang berbeda. Pada Network 3, berika
 6. Membuktikan domain-search sampai ke client. `udhcpc` secara bawaan tidak meminta option 119 (domain-search), sehingga ditambahkan `-O 119` dan opsi yang diterima dicetak dengan script `-s`.
 
 ### Command
-**tengen** — `/root/05_tengen_lease.sh` (bagian yang ditambahkan)
+**tengen** — `/root/05_tengen_lease.sh` 
  
 ```
 option domain-name-servers 10.84.1.2, 10.84.1.3;
@@ -421,44 +422,408 @@ Hasil:
 Catatan: angka lease time di client dapat lebih kecil dari nilai penuh (misalnya `1796`) karena client sedang memperbarui lease yang masih aktif, sehingga server mengembalikan sisa waktunya. Nilai di server tetap 1800 detik.
 
 ## Soal 6
+Kugisaki ditetapkan sebagai personel VIP yang harus mempertahankan alamat yang sama setiap kali terhubung. Buat DHCP static lease berdasarkan MAC Address client tersebut dengan fixed address [PREFIX IP].3.99. Pastikan alamat ini berada di luar seluruh pool dinamis, validasi konfigurasi server, lalu renew lease pada client. Buktikan bahwa alamat yang diterima sesuai dengan reservasi.
 
 ### Ringkasan
+*Kugisaki (MAC `02:42:89:a8:74:00`) diberi static lease `10.84.3.99` melalui deklarasi `host` pada tengen. Alamat ini berada di antara pool short (`.10`–`.89`) dan pool long (`.100`–`.199`), sehingga di luar semua pool dinamis. Setelah konfigurasi divalidasi dan lease di-renew, kugisaki memperoleh `10.84.3.99`, dibuktikan dengan `ip -br a` dan tangkapan paket DHCP.*
 
 ### Langkah Pengerjaan
+1. Mengambil MAC `eth0` kugisaki (`02:42:89:a8:74:00`) dari **Show node information** di GNS3.
+2. Menambahkan blok `host kugisaki` pada subnet Network 3 dengan `hardware ethernet` dan `fixed-address 10.84.3.99`.
+3. Memastikan `10.84.3.99` di luar semua `range` (short `10.84.3.10`–`.89` dan long `10.84.3.100`–`.199`).
+4. Memvalidasi dengan `dhcpd -t` dan me-restart service.
+5. Me-renew lease dari kugisaki dengan `udhcpc -i eth0`, lalu memeriksa IP dan route.
+6. Menangkap paket DHCP pada tengen untuk membuktikan server menjawab dengan alamat reservasi.
 
 ### Command
+**tengen** — `/root/06_tengen_fixed.sh`
+```
+authoritative;
+default-lease-time 600;
+max-lease-time 7200;
+ 
+option domain-name-servers 10.84.1.2, 10.84.1.3;
+option domain-search "K41.com";
+ 
+class "pool1" {
+    match if substring(hardware, 1, 6) = 02:42:ca:0c:2a:00
+          or substring(hardware, 1, 6) = 02:42:2c:10:8f:00;
+}
+class "pool2" {
+    match if substring(hardware, 1, 6) = 02:42:4a:14:24:00
+          or substring(hardware, 1, 6) = 02:42:bc:7b:16:00;
+}
+class "short" {
+    match if substring(hardware, 1, 6) = 02:42:7d:1f:d9:00
+          or substring(hardware, 1, 6) = 02:42:65:95:ef:00;
+    default-lease-time 1800;
+    max-lease-time 1800;
+}
+class "long" {
+    match if substring(hardware, 1, 6) = 02:42:90:34:fc:00;
+    default-lease-time 43200;
+    max-lease-time 43200;
+}
+ 
+subnet 10.84.4.0 netmask 255.255.255.0 {
+}
+ 
+subnet 10.84.2.0 netmask 255.255.255.0 {
+    option routers 10.84.2.1;
+    option broadcast-address 10.84.2.255;
+    pool { range 10.84.2.10 10.84.2.35; allow members of "pool1"; }
+    pool { range 10.84.2.70 10.84.2.95; allow members of "pool2"; }
+}
+ 
+subnet 10.84.3.0 netmask 255.255.255.0 {
+    option routers 10.84.3.1;
+    option broadcast-address 10.84.3.255;
+    pool { range 10.84.3.10 10.84.3.89;   allow members of "short"; }
+    pool { range 10.84.3.100 10.84.3.199; allow members of "long"; }
+ 
+    host kugisaki {
+        hardware ethernet 02:42:89:a8:74:00;
+        fixed-address 10.84.3.99;
+    }
+}
+```
+ 
+```
+dhcpd -t -cf /etc/dhcp/dhcpd.conf
+service isc-dhcp-server restart
+```
+ 
+**kugisaki**
+ 
+```
+udhcpc -i eth0
+ip -br a
+ip r
+```
+ 
+**Verifikasi** (tengen)
+ 
+```
+grep -A4 "host kugisaki" /etc/dhcp/dhcpd.conf
+grep -E "range|fixed-address" /etc/dhcp/dhcpd.conf
+dhcpd -t -cf /etc/dhcp/dhcpd.conf
+service isc-dhcp-server status
+tcpdump -ni eth0 -vvv port 67 or port 68
+```
+ 
+Hasil: konfigurasi valid dan service berjalan. kugisaki memperoleh `10.84.3.99/24` dengan `default via 10.84.3.1`. Pada tangkapan paket, Offer dan ACK berisi `Your-IP 10.84.3.99` dan `Client-Ethernet-Address 02:42:89:a8:74:00`, dengan `Gateway-IP 10.84.3.1`.
 
 ## Soal 7
+Setelah aturan alokasi diterapkan, pastikan setiap client menerima konfigurasi jaringan sesuai wilayahnya: subnet mask 255.255.255.0 (/24), gateway dan broadcast address yang benar, DNS [PREFIX IP].1.2 serta [PREFIX IP].1.3, dan domain-search yang ditentukan. Periksa IP address dan routing seluruh client Divisi A dan Divisi B, kemudian cocokkan lease dengan /var/lib/dhcp/dhcpd.leases pada tengen. Pastikan tidak ada alamat yang bertabrakan atau berada di luar kebijakan pool.
 
 ### Ringkasan
+*Seluruh delapan client (Divisi A dan B) menjalankan script pemeriksaan yang menampilkan IP, route, `resolv.conf`, dan opsi DHCP yang diterima (subnet, router, broadcast, DNS, `search`). Lease kemudian dicocokkan dengan `dhcpd.leases` pada tengen: setiap IP hanya dipegang satu MAC, semua berada di dalam kebijakan pool, dan tidak ada alamat pada `10.84.2.36`–`10.84.2.69`.*
 
 ### Langkah Pengerjaan
+1. Membuat script `/root/07_client_cek.sh` pada setiap client.
+2. Menjalankan script pada itadori, fushiguro, zenin, okkotsu (Divisi A) dan ino, kusakabe, miwa, kugisaki (Divisi B).
+3. Memeriksa mask, gateway, broadcast, DNS, dan domain-search pada output tiap client.
+4. Pada tengen, mengekstrak pasangan IP dan MAC dari `dhcpd.leases` dengan `awk` untuk memeriksa bentrok dan alamat di luar kebijakan.
 
 ### Command
+**Client** — `/root/07_client_cek.sh`
+ 
+```
+hostname
+ip link set eth0 up
+udhcpc -i eth0
+ip -br a
+ip r
+cat /etc/resolv.conf
+printf '#!/bin/sh\nenv | grep -E "^(search|domain|dns|router|subnet|broadcast|lease)"\n' > /tmp/show.sh
+chmod +x /tmp/show.sh
+udhcpc -i eth0 -n -q -O 119 -s /tmp/show.sh
+```
+ 
+**tengen**
+ 
+```
+awk '/^lease/{ip=$2} /hardware ethernet/{gsub(";","",$3); m[ip]=$3} END{for(i in m) print i, m[i]}' /var/lib/dhcp/dhcpd.leases | sort -V
+```
+ 
+Hasil:
+ 
+| Client | IP | Gateway | Broadcast | Kebijakan |
+|---|---|---|---|---|
+| itadori | 10.84.2.10 | 10.84.2.1 | 10.84.2.255 | Pool 1 |
+| fushiguro | 10.84.2.11 | 10.84.2.1 | 10.84.2.255 | Pool 1 |
+| zenin | 10.84.2.70 | 10.84.2.1 | 10.84.2.255 | Pool 2 |
+| okkotsu | 10.84.2.71 | 10.84.2.1 | 10.84.2.255 | Pool 2 |
+| ino | 10.84.3.10 | 10.84.3.1 | 10.84.3.255 | Short (1800) |
+| kusakabe | 10.84.3.11 | 10.84.3.1 | 10.84.3.255 | Short (1800) |
+| miwa | 10.84.3.100 | 10.84.3.1 | 10.84.3.255 | Long (43200) |
+| kugisaki | 10.84.3.99 | 10.84.3.1 | 10.84.3.255 | Fixed |
+ 
+Semua client menerima mask `255.255.255.0`, `dns=10.84.1.2 10.84.1.3`, dan `search=K41.com`. Kugisaki tidak muncul pada daftar `awk` karena memakai reservasi statis
 
 ## Soal 8
-
+Sebelum Curtain dibuka kembali, buktikan bahwa proses pemberian alamat berjalan sesuai protokol. Lakukan packet capture saat salah satu client Network 2 atau Network 3 meminta lease baru. Gunakan tcpdump pada tengen atau jalur menuju Data Center untuk menunjukkan urutan DHCPDISCOVER → DHCPOFFER → DHCPREQUEST → DHCPACK. Identifikasi alamat server, alamat yang diberikan, lease time, dan field giaddr. Pastikan nilai giaddr sesuai dengan interface jichi yang menerima request dari subnet client.
+ 
 ### Ringkasan
-
+*Pada tengen ditangkap paket DHCP saat itadori (Network 2) meminta lease baru. Urutan Discover → Offer → Request → ACK terlihat lengkap, dengan server `10.84.4.10`, alamat diberikan `10.84.2.10`, lease time 600 detik, dan `giaddr` `10.84.2.1`, yaitu IP `eth2` jichi, interface yang menerima request dari Network 2.*
+ 
 ### Langkah Pengerjaan
+1. Pada itadori, melepas lease lama (`killall -USR2 udhcpc`) dan membersihkan proses `udhcpc` supaya server menjawab dengan lease penuh, bukan sisa waktu lease aktif, serta tidak ada pesan Release di dalam capture.
+2. Pada tengen, menjalankan `tcpdump` pada `eth0` untuk port 67 dan 68 dengan keluaran lengkap (`-vvv`), disimpan ke `/root/soal08_capture.txt` dan `/root/soal08.pcap`.
+3. Pada itadori, meminta lease baru dengan `udhcpc -i eth0`.
+4. Membaca keempat paket: alamat server (`Server-ID`), alamat yang diberikan (`Your-IP`), lease time (`Lease-Time`), dan `giaddr` (`Gateway-IP`).
+5. Mencocokkan `giaddr` dengan IP interface jichi menggunakan `ip -br a`.
 
 ### Command
+**itadori** — `/root/08_client.sh`
+```
+killall -USR2 udhcpc
+sleep 2
+killall udhcpc
+ps | grep [u]dhcpc
+```
+ 
+**tengen** — `/root/08_capture.sh` 
+ 
+```
+tcpdump -ni eth0 -vvv port 67 or port 68 -w /root/soal08.pcap
+tcpdump -nr /root/soal08.pcap -vvv | tee /root/soal08_capture.txt
+```
+ 
+**itadori** — meminta lease baru
+ 
+```
+udhcpc -i eth0
+ip -br a
+ip r
+```
+ 
+**jichi**
+ 
+```
+ip -br a
+```
+ 
+Hasil:
+ 
+| Item | Nilai |
+|---|---|
+| Urutan paket | Discover → Offer → Request → ACK |
+| Alamat server (`Server-ID`) | 10.84.4.10 |
+| Alamat diberikan (`Your-IP`) | 10.84.2.10 (Pool 1) |
+| Lease time (`Lease-Time`) | 600 detik |
+| giaddr (`Gateway-IP`) | 10.84.2.1 |
+ 
+`giaddr` sama dengan IP `eth2` jichi (`10.84.2.1`), yaitu interface yang menerima request dari Network 2. Pada capture, paket dari relay bersumber `10.84.4.1` ke `10.84.4.10`, dan balasan server dikirim ke `10.84.2.1` (alamat giaddr).
 
 ## Soal 9
+Sebuah gangguan memutus jalur relay dan membuat permintaan alamat tidak sampai ke Data Center. Hentikan service DHCP Relay pada jichi, lalu paksa salah satu client di Network 2 atau Network 3 meminta lease baru dan catat gejalanya. Pulihkan service relay, ulangi permintaan DHCP, lalu buktikan bahwa client kembali memperoleh alamat dari pool yang benar dengan gateway semula.
 
 ### Ringkasan
+*DHCP Relay pada jichi dimatikan, lalu ino (Network 3) dipaksa meminta lease baru. Client tidak memperoleh alamat (tanpa IPv4, tanpa default route, `Network unreachable`), dan tcpdump pada jichi memperlihatkan DISCOVER masuk di `eth3` tetapi tidak diteruskan ke tengen lewat `eth4`. Setelah relay dipulihkan, ino kembali memperoleh `10.84.3.10` (pool short, lease 1800) dengan gateway `10.84.3.1`.*
 
 ### Langkah Pengerjaan
+1. Pada ino, melepas lease dan menghapus IP (`killall -USR2 udhcpc`, `killall udhcpc`, `ip addr flush dev eth0`).
+2. Pada jichi, mematikan relay dengan script `09_jichi_gangguan.sh stop` dan memastikan proses `dhcrelay` hilang.
+3. Pada jichi, menjalankan `tcpdump` di latar belakang untuk port 67 dan 68.
+4. Pada ino, meminta lease dengan `udhcpc -i eth0 -n -q -t 3 -T 2` (batas percobaan sehingga cepat gagal), lalu memeriksa IP, route, dan ping ke gateway.
+5. Menghentikan tcpdump dan memeriksa hasilnya (baris `eth0` dari jaringan NAT disaring dengan `grep -v ' eth0 '`).
+6. Memulihkan relay dengan `09_jichi_gangguan.sh start` dan memastikan proses `dhcrelay` kembali berjalan.
+7. Pada ino, meminta lease lagi lalu memeriksa IP, route, dan ping ke gateway.
 
 ### Command
-
+**jichi** — `/root/09_jichi_gangguan.sh`
+ 
+```
+#!/bin/bash
+case "$1" in
+  stop)
+    service isc-dhcp-relay stop
+    sleep 1
+    killall dhcrelay 2>/dev/null
+    echo "[jichi] Relay dihentikan. Status proses:"
+    ps aux | grep [d]hcrelay || echo "(tidak ada proses dhcrelay -> relay MATI)"
+    ;;
+  start)
+    if [ ! -f /etc/default/isc-dhcp-relay ]; then
+        echo "[jichi] Paket relay belum ada, menjalankan 03_jichi_relay.sh ..."
+        bash /root/03_jichi_relay.sh
+    else
+        service isc-dhcp-relay start
+    fi
+    sleep 1
+    echo "[jichi] Relay dipulihkan. Status proses:"
+    ps aux | grep [d]hcrelay
+    ;;
+  *)
+    echo "Pemakaian: bash $0 stop|start"
+    exit 1
+    ;;
+esac
+```
+ 
+**Saat gangguan**
+ 
+```
+# ino
+killall -USR2 udhcpc 2>/dev/null; sleep 2; killall udhcpc 2>/dev/null
+ip addr flush dev eth0
+ 
+# jichi
+bash /root/09_jichi_gangguan.sh stop
+ps aux | grep [d]hcrelay
+tcpdump -ni any -l 'port 67 or port 68' > /root/soal09_gangguan.txt 2>&1 &
+ 
+# ino
+udhcpc -i eth0 -n -q -t 3 -T 2
+ip -br a
+ip r
+ping -c 2 10.84.3.1
+ 
+# jichi
+pkill tcpdump
+grep -v ' eth0 ' /root/soal09_gangguan.txt
+```
+ 
+**Pemulihan**
+ 
+```
+# jichi
+bash /root/09_jichi_gangguan.sh start
+ps aux | grep [d]hcrelay
+ 
+# ino
+udhcpc -i eth0
+ip -br a
+ip r
+ping -c 3 10.84.3.1
+```
+ 
+Gejala saat relay mati:
+- ino: `broadcasting discover` berulang, lalu `no lease, failing`.
+- ino: tidak ada IPv4 pada `eth0` dan tidak ada default route, `ping` menghasilkan `Network unreachable`.
+- jichi (tcpdump): tiga DISCOVER dari MAC ino (`02:42:7d:1f:d9:00`) masuk di `eth3`, **tanpa** paket yang diteruskan ke `10.84.4.10` lewat `eth4`.
+Setelah relay dipulihkan: ino memperoleh `10.84.3.10/24` (pool short `10.84.3.10`–`.89`), lease 1800, `default via 10.84.3.1` (gateway semula), dan ping ke gateway berhasil.
+ 
 ## Soal 10
+Setelah gangguan Shibuya tertangani, pastikan pemulihan bertahan setelah restart. Aktifkan autostart DHCP Server pada tengen dan DHCP Relay pada jichi, lalu restart kedua node. Verifikasi status layanan, IP, gateway, lease, dan konektivitas client Network 2–3. Pastikan kebijakan Pool 1, Pool 2, short lease, long lease, dan fixed address tetap berlaku.
 
 ### Ringkasan
+*Container tidak memiliki systemd, dan setelah node dimatikan lalu dinyalakan kembali hanya `/root` serta IP dari `.bashrc` yang bertahan, sedangkan paket (`isc-dhcp-server`, `isc-dhcp-relay`), konfigurasi di `/etc`, dan proses ikut hilang. Karena itu dibuat script boot (`boot_jichi.sh` dan `boot_tengen.sh`) yang dipicu dari `/root/.bashrc`: memasang ulang paket bila hilang, menulis ulang konfigurasi, dan menjalankan service. Setelah tengen dan jichi di-restart, DHCP Server dan Relay hidup kembali otomatis, dan kebijakan Pool 1, Pool 2, short lease, long lease, dan fixed address tetap berlaku.*
 
 ### Langkah Pengerjaan
+1. Membuat `/root/boot_jichi.sh` pada jichi: mengaktifkan forwarding, mengatur resolver, memasang `isc-dhcp-relay` bila belum ada, menulis `/etc/default/isc-dhcp-relay`, lalu menjalankan relay. Script keluar lebih awal bila `dhcrelay` sudah berjalan.
+2. Membuat `/root/boot_tengen.sh` pada tengen: mengatur resolver, memasang `isc-dhcp-server` bila belum ada, memastikan interface `eth0`, menjalankan `06_tengen_fixed.sh` (konfigurasi lengkap Soal 4 sampai 6), lalu me-restart service. Script keluar lebih awal bila `dhcpd` sudah berjalan.
+3. Menambahkan pemicu pada `/root/.bashrc` masing-masing node agar script dijalankan di latar belakang setiap konsol dibuka, dengan log pada `/root/boot.log`.
+4. Mencatat PID `dhcrelay` dan `dhcpd` sebelum restart.
+5. Me-restart tengen dan jichi (Stop lalu Start di GNS3). Konsol jichi dibuka lebih dulu karena instalasi paket di tengen membutuhkan akses internet melalui jichi.
+6. Memverifikasi status layanan, IP, dan gateway pada jichi dan tengen, serta PID yang berubah.
+7. Meminta lease dari client Network 2 dan 3 yang mewakili tiap kebijakan, lalu memeriksa IP, route, dan konektivitas ke gateway serta ke tengen.
+8. Memeriksa `dhcpd.leases` pada tengen untuk memastikan lease dan durasinya sesuai kebijakan.
 
 ### Command
+**jichi** — `/root/boot_jichi.sh`
+ 
+```
+#!/bin/bash
+pgrep -x dhcrelay >/dev/null && exit 0
+sysctl -w net.ipv4.ip_forward=1 >/dev/null
+echo "nameserver 192.168.122.1" > /etc/resolv.conf
+if ! command -v dhcrelay >/dev/null; then
+  apt-get update || true
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confold" isc-dhcp-relay
+fi
+cat > /etc/default/isc-dhcp-relay <<EOF
+SERVERS="10.84.4.10"
+INTERFACES="eth2 eth3 eth4"
+OPTIONS=""
+EOF
+service isc-dhcp-relay restart
+pgrep -x dhcrelay >/dev/null || dhcrelay -4 -i eth2 -i eth3 -i eth4 10.84.4.10
+```
+ 
+```
+chmod +x /root/boot_jichi.sh
+echo '(/root/boot_jichi.sh >> /root/boot.log 2>&1 &)' >> /root/.bashrc
+```
+ 
+**tengen** — `/root/boot_tengen.sh`
+ 
+```
+#!/bin/bash
+pgrep -x dhcpd >/dev/null && exit 0
+echo "nameserver 192.168.122.1" > /etc/resolv.conf
+if ! command -v dhcpd >/dev/null; then
+  apt-get update || true
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confold" isc-dhcp-server tcpdump
+fi
+sed -i 's/^INTERFACESv4=.*/INTERFACESv4="eth0"/' /etc/default/isc-dhcp-server
+bash /root/06_tengen_fixed.sh
+dhcpd -t -cf /etc/dhcp/dhcpd.conf && service isc-dhcp-server restart
+```
+ 
+```
+chmod +x /root/boot_tengen.sh
+echo '(/root/boot_tengen.sh >> /root/boot.log 2>&1 &)' >> /root/.bashrc
+```
+ 
+**Sebelum restart** (jichi dan tengen)
+ 
+```
+cat /root/boot_jichi.sh        # di jichi
+cat /root/boot_tengen.sh       # di tengen
+grep -n boot /root/.bashrc
+ps aux | grep -E "[d]hcpd|[d]hcrelay"
+```
+ 
+**Setelah restart**
+ 
+```
+# jichi
+cat /root/boot.log
+ps aux | grep [d]hcrelay
+cat /etc/default/isc-dhcp-relay
+ip -br a
+ip r
+ping -c 2 8.8.8.8
+ 
+# tengen
+cat /root/boot.log
+ps aux | grep [d]hcpd
+service isc-dhcp-server status
+ip -br a
+ip r
+grep -E "range|fixed-address|lease-time" /etc/dhcp/dhcpd.conf
+ 
+# client (itadori, zenin, ino, miwa, kugisaki)
+killall udhcpc 2>/dev/null
+udhcpc -i eth0 -n -q
+ip -br a
+ip r
+ping -c 2 <gateway>
+ping -c 2 10.84.4.10
+ 
+# tengen: lease di server
+awk '/^lease/{ip=$2} /hardware ethernet/{gsub(";","",$3); m[ip]=$3} END{for(i in m) print i, m[i]}' /var/lib/dhcp/dhcpd.leases | sort -V
+grep -A3 -E "^lease 10\.84\.3\.(10|100) " /var/lib/dhcp/dhcpd.leases
+```
+ 
+Hasil setelah restart:
+ 
+| Bukti | Hasil |
+|---|---|
+| PID relay (jichi) | 550 → 147 (proses baru) |
+| PID dhcpd (tengen) | 563 → 168 (proses baru) |
+| Autostart | Script boot berjalan sendiri; `boot.log` mencatat instalasi paket, penulisan konfigurasi, dan start service |
+| jichi | `eth1`–`eth4` kembali ber-IP, `eth0` memperoleh `192.168.122.251`, ping `8.8.8.8` berhasil, `INTERFACES="eth2 eth3 eth4"` |
+| tengen | `10.84.4.10`, `default via 10.84.4.1`, `dhcpd is running`, semua `range`, lease time 600/1800/43200, dan `fixed-address 10.84.3.99` utuh |
+| itadori (Pool 1) | `10.84.2.10`, lease 600, ping gateway dan tengen berhasil |
+| zenin (Pool 2) | `10.84.2.70`, lease 600, ping gateway dan tengen berhasil |
+| ino (short) | `10.84.3.10`, ping gateway dan tengen berhasil |
+| miwa (long) | `10.84.3.100`, lease 43200, ping gateway dan tengen berhasil |
+| kugisaki (fixed) | `10.84.3.99`, ping gateway dan tengen berhasil |
+| Lease di server | `10.84.2.10`, `10.84.2.70`, `10.84.3.10`, `10.84.3.100` dengan MAC yang sesuai |
+| Durasi lease | ino 30 menit (`09:27:08` → `09:57:08`), miwa 12 jam (`09:31:16` → `21:31:16`) |
 
 ## Soal 11
 Utahime dan Shoko ditugaskan membangun sistem penamaan domain resmi agar seluruh pos tidak perlu menghafal alamat IP mentah. Konfigurasikan BIND9 pada **utahime** sebagai **DNS Master** dan **shoko** sebagai **DNS Slave** untuk mengelola domain `jujutsu.<xxxx>.com`. Atur SOA record, NS delegasi untuk kedua server, dan terapkan **allow-transfer** dari Master ke Slave. Pastikan file zona berhasil tersinkronisasi otomatis ke shoko saat nomor serial di utahime dinaikkan, lalu buktikan dengan melakukan query **dig** ke kedua server dari salah satu client.
